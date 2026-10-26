@@ -26,13 +26,12 @@ const A=firebase.auth(),$=i=>document.getElementById(i),err=t=>$('e').textConten
 let busy=0;
 A.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
 A.onAuthStateChanged(u=>{if(u)location.replace('index.html')});
-A.getRedirectResult().catch(()=>err('Sign-in failed. Please try again.'));
 $('gb').onclick=async()=>{
   if(busy)return;busy=1;$('gb').disabled=true;err('');
   const p=new firebase.auth.GoogleAuthProvider();
   try{await A.signInWithPopup(p)}catch(e){
-    if(['auth/popup-blocked','auth/operation-not-supported-in-this-environment','auth/web-storage-unsupported'].includes(e.code))return A.signInWithRedirect(p);
-    if(!['auth/popup-closed-by-user','auth/cancelled-popup-request'].includes(e.code))err('Sign-in failed. Please try again.');
+    if(e.code=='auth/popup-blocked')err('Popup was blocked. Please allow popups and try again.');
+    else if(!['auth/popup-closed-by-user','auth/cancelled-popup-request'].includes(e.code))err('Sign-in failed. Please try again.');
     busy=0;$('gb').disabled=false;
   }
 };
