@@ -47,7 +47,7 @@ input{font-size:30px;text-align:center;width:min(88vw,380px);padding:14px;border
 <button class="card o" onclick="goSetup('pass')"><span>👥</span><div><b>Pass and Play</b><small>Same phone, take turns</small></div></button>
 <button class="card b" onclick="goOnline()"><span>🌐</span><div><b>Play with Friends</b><small>Online room with a code</small></div></button>
 <button class="card p" onclick="goHist()"><span>📜</span><div><b>History &amp; Points</b><small>Past games and your score</small></div></button>
-<button class="btn sm" onclick="A.signOut().then(()=>location.replace('login.html'))">Logout</button></div>
+<button class="btn sm" onclick="out()">Logout</button></div>
 <div id="setup" class="s"><h2 id="sh"></h2><div id="cw"><div style="font-size:20px">Choose your colour</div><div id="cc"></div></div><div style="font-size:20px">How many players?</div>
 <button class="btn g" onclick="startLocal(2)">2 Players</button><button class="btn o" onclick="startLocal(3)">3 Players</button><button class="btn b" onclick="startLocal(4)">4 Players</button>
 <button class="btn sm" onclick="goMenu()">← Back</button></div>
@@ -72,7 +72,7 @@ const C=['#e53935','#43a047','#fdd835','#1e88e5'],CN=['Red','Green','Yellow','Bl
 const P="1,6 2,6 3,6 4,6 5,6 6,5 6,4 6,3 6,2 6,1 6,0 7,0 8,0 8,1 8,2 8,3 8,4 8,5 9,6 10,6 11,6 12,6 13,6 14,6 14,7 14,8 13,8 12,8 11,8 10,8 9,8 8,9 8,10 8,11 8,12 8,13 8,14 7,14 6,14 6,13 6,12 6,11 6,10 6,9 5,8 4,8 3,8 2,8 1,8 0,8 0,7 0,6".split(' ').map(s=>s.split(',').map(Number));
 const S=[0,8,13,21,26,34,39,47],O=[[0,0],[9,0],[9,9],[0,9]],HC=(s,i)=>[[1+i,7],[7,1+i],[13-i,7],[7,13-i]][s];
 let U,mode,N,G,sp,tk,toks,q=Promise.resolve(),pend=0,gen=0,T,shownV=-1,room,gameRoom,mySeat=0,myCol=0,off,snd=true,AC;
-const nm=()=>(U.displayName||'Player').split(' ')[0].slice(0,12),lvl=p=>p<100?'Beginner':p<300?'Player':p<700?'Expert':'Master';
+const nm=()=>(U.isAnonymous?'Guest':U.displayName||'Player').split(' ')[0].slice(0,12),lvl=p=>p<100?'Beginner':p<300?'Player':p<700?'Expert':'Master';
 const toast=t=>{const e=$('toast');e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,2200)};
 const SC=['ld','menu','setup','online','lobby','hist','game'];
 const go=i=>{SC.forEach(x=>$(x).classList.toggle('on',x==i));$('ov').classList.remove('on')};
@@ -95,6 +95,7 @@ async function goHist(){go('hist');$('ht').innerHTML='';$('hl').textContent='Loa
     $('ht').innerHTML=`<span class="chip">⭐ ${p}</span><span class="chip">${lvl(p)}</span><span class="chip">🏆 ${x.won||0} wins</span><span class="chip">🎮 ${x.played||0} games</span>`;
     $('hl').innerHTML=g.empty?'No games yet. Play one!':g.docs.map(z=>{const v=z.data();return`<div class="row"><div><b>${['','🥇 1st','🥈 2nd','🥉 3rd','4th'][v.rank]}</b> · ${v.mode=='cpu'?'🤖 Computer':'🌐 Friends'} · ${v.n} players<br><small>${new Date(v.t).toLocaleString([],{dateStyle:'medium',timeStyle:'short'})} · cuts: ${v.cuts}</small></div><div class="pt">+${v.pts}</div></div>`}).join('')}
   catch(e){$('hl').textContent='Could not load history.'}}
+function out(){if(U.isAnonymous&&!confirm('Guest progress will be lost if you log out. Continue?'))return;A.signOut().then(()=>location.replace('login.html'))}
 function goMenu(){go('menu');stats()}
 function ccs(){$('cc').innerHTML=C.map((c,i)=>`<button class="cb${i==myCol?' sel':''}" style="background:${c};color:${c}" onclick="myCol=${i};ccs()"></button>`).join('')}
 function goSetup(m){mode=m;$('sh').textContent=m=='cpu'?'Play with Computer':'Pass and Play';$('cw').style.display=m=='cpu'?'':'none';ccs();go('setup')}
