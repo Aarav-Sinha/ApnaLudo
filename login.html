@@ -23,25 +23,29 @@ button:active{transform:translateY(4px)}button:disabled{opacity:.6}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
-firebase.initializeApp({apiKey:"AIzaSyAxHh83RsFuK6lOAn9nXisC1ZvTZj8P1DY",authDomain:"ludo-aarav.firebaseapp.com",projectId:"ludo-aarav",storageBucket:"ludo-aarav.firebasestorage.app",messagingSenderId:"995912279190",appId:"1:995912279190:web:4adfd72f7eed260298ceb7"});
-const A=firebase.auth(),$=i=>document.getElementById(i),err=t=>$('e').textContent=t;
-let busy=0;
-A.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
-A.onAuthStateChanged(u=>{if(u)location.replace('index.html')});
+const $=i=>document.getElementById(i),err=t=>$('e').textContent=t;
+const store={get(k){let v=null;try{v=localStorage.getItem(k)}catch(e){}return v||((window.name||'').includes('|'+k+'|')?'1':null)},set(k){try{localStorage.setItem(k,'1')}catch(e){}if(!(window.name||'').includes('|'+k+'|'))window.name=(window.name||'')+'|'+k+'|'},del(k){try{localStorage.removeItem(k)}catch(e){}window.name=(window.name||'').replace('|'+k+'|','')}};
+let A=null,busy=0;
+try{firebase.initializeApp({apiKey:"AIzaSyAxHh83RsFuK6lOAn9nXisC1ZvTZj8P1DY",authDomain:"ludo-aarav.firebaseapp.com",projectId:"ludo-aarav",storageBucket:"ludo-aarav.firebasestorage.app",messagingSenderId:"995912279190",appId:"1:995912279190:web:4adfd72f7eed260298ceb7"});A=firebase.auth()}catch(e){}
+const native=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform());
+const lock=d=>{busy=d?1:0;$('gb').disabled=$('gu').disabled=d};
+const done=()=>{store.del('localGuest');location.replace('index.html')};
+if(store.get('localGuest'))location.replace('index.html');
+else if(A)try{A.onAuthStateChanged(u=>{if(u)done()})}catch(e){}
+// Google: native Android account picker (Capacitor), then the token is handed to Firebase. No popup, no redirect.
 $('gb').onclick=async()=>{
-  if(busy)return;busy=1;$('gb').disabled=$('gu').disabled=true;err('');
-  const p=new firebase.auth.GoogleAuthProvider();
-  try{await A.signInWithPopup(p)}catch(e){
-    if(e.code=='auth/popup-blocked')err('Popup was blocked. Please allow popups and try again.');
-    else if(!['auth/popup-closed-by-user','auth/cancelled-popup-request'].includes(e.code))err('Sign-in failed. Please try again.');
-    busy=0;$('gb').disabled=$('gu').disabled=false;
-  }
+  if(busy)return;err('');
+  if(!native||!A)return err('Google sign-in works in the installed Android app (Capacitor build). You can use Guest meanwhile.');
+  lock(true);
+  try{
+    const FA=Capacitor.registerPlugin('FirebaseAuthentication'),r=await FA.signInWithGoogle({skipNativeAuth:true});
+    await A.signInWithCredential(firebase.auth.GoogleAuthProvider.credential(r.credential.idToken));
+  }catch(e){lock(false);const c=(e&&(e.code||e.message))||'error';if(!/cancel/i.test(c))err('Google sign-in failed ['+c+']')}
 };
+// Guest: Firebase guest account; if Firebase is unreachable, falls back to an offline guest on this phone.
 $('gu').onclick=async()=>{
-  if(busy)return;busy=1;$('gb').disabled=$('gu').disabled=true;err('');
-  try{await A.signInAnonymously()}catch(e){
-    err(e.code=='auth/operation-not-allowed'?'Guest login is not enabled in Firebase yet.':'Could not continue as guest. Please try again.');
-    busy=0;$('gb').disabled=$('gu').disabled=false;
-  }
+  if(busy)return;lock(true);err('');
+  try{await Promise.race([A.signInAnonymously(),new Promise((_,j)=>setTimeout(j,6000))])}
+  catch(e){store.set('localGuest');location.replace('index.html')}
 };
 </script></body></html>

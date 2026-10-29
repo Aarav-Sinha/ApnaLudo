@@ -66,8 +66,10 @@ input{font-size:30px;text-align:center;width:min(88vw,380px);padding:14px;border
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
-firebase.initializeApp({apiKey:"AIzaSyAxHh83RsFuK6lOAn9nXisC1ZvTZj8P1DY",authDomain:"ludo-aarav.firebaseapp.com",databaseURL:"https://ludo-aarav-default-rtdb.firebaseio.com",projectId:"ludo-aarav",storageBucket:"ludo-aarav.firebasestorage.app",messagingSenderId:"995912279190",appId:"1:995912279190:web:4adfd72f7eed260298ceb7"});
-const A=firebase.auth(),DB=firebase.database(),FS=firebase.firestore(),$=i=>document.getElementById(i),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let A=null,DB=null,FS=null;try{firebase.initializeApp({apiKey:"AIzaSyAxHh83RsFuK6lOAn9nXisC1ZvTZj8P1DY",authDomain:"ludo-aarav.firebaseapp.com",databaseURL:"https://ludo-aarav-default-rtdb.firebaseio.com",projectId:"ludo-aarav",storageBucket:"ludo-aarav.firebasestorage.app",messagingSenderId:"995912279190",appId:"1:995912279190:web:4adfd72f7eed260298ceb7"});
+A=firebase.auth();DB=firebase.database();FS=firebase.firestore()}catch(e){}
+const store={get(k){let v=null;try{v=localStorage.getItem(k)}catch(e){}return v||((window.name||'').includes('|'+k+'|')?'1':null)},set(k){try{localStorage.setItem(k,'1')}catch(e){}if(!(window.name||'').includes('|'+k+'|'))window.name=(window.name||'')+'|'+k+'|'},del(k){try{localStorage.removeItem(k)}catch(e){}window.name=(window.name||'').replace('|'+k+'|','')}};
+const $=i=>document.getElementById(i),sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const C=['#e53935','#43a047','#fdd835','#1e88e5'],CN=['Red','Green','Yellow','Blue'],BON=[50,30,15,0];
 const P="1,6 2,6 3,6 4,6 5,6 6,5 6,4 6,3 6,2 6,1 6,0 7,0 8,0 8,1 8,2 8,3 8,4 8,5 9,6 10,6 11,6 12,6 13,6 14,6 14,7 14,8 13,8 12,8 11,8 10,8 9,8 8,9 8,10 8,11 8,12 8,13 8,14 7,14 6,14 6,13 6,12 6,11 6,10 6,9 5,8 4,8 3,8 2,8 1,8 0,8 0,7 0,6".split(' ').map(s=>s.split(',').map(Number));
 const S=[0,8,13,21,26,34,39,47],O=[[0,0],[9,0],[9,9],[0,9]],HC=(s,i)=>[[1+i,7],[7,1+i],[13-i,7],[7,13-i]][s];
@@ -84,22 +86,27 @@ const SFX={open:()=>seq([523,784],.12,'triangle',.09,.1),six:()=>seq([784,1047,1
 const sfx=n=>SFX[n]&&SFX[n]();
 function confetti(){const o=$('ov');for(let i=0;i<80;i++){const d=document.createElement('i');d.className='cf';d.style.cssText=`left:${Math.random()*100}%;background:${['#e53935','#43a047','#fdd835','#1e88e5','#ffd54f','#ab47bc'][i%6]};animation-duration:${2.5+Math.random()*2.5}s;animation-delay:${Math.random()*1.2}s;width:${6+Math.random()*8}px;height:${10+Math.random()*10}px`;o.append(d)}}
 // ---------- auth, menu, stats ----------
-A.onAuthStateChanged(u=>{if(!u)return location.replace('login.html');U=u;$('hi').textContent='Namaste, '+nm()+' 🙏';$('av').textContent=nm()[0].toUpperCase();goMenu()});
-function stats(){FS.collection('users').doc(U.uid).get().then(d=>{const x=d.exists?d.data():{},p=x.points||0;$('stats').textContent=`⭐ ${p} pts · ${lvl(p)} · 🏆 ${x.won||0}/${x.played||0} won`}).catch(()=>{})}
+const LOCAL={uid:'local',isAnonymous:true,local:true},LGET=()=>{try{return JSON.parse(localStorage.lg)||{}}catch(e){return{}}};
+const boot=u=>{U=u;$('hi').textContent='Namaste, '+nm()+' 🙏';$('av').textContent=nm()[0].toUpperCase();goMenu()};
+if(store.get('localGuest'))boot(LOCAL);
+else{try{A.onAuthStateChanged(u=>u?boot(u):location.replace('login.html'))}catch(e){location.replace('login.html')}setTimeout(()=>{if(!U)location.replace('login.html')},6000)}
+function stats(){const show=x=>{const p=x.points||0;$('stats').textContent=`⭐ ${p} pts · ${lvl(p)} · 🏆 ${x.won||0}/${x.played||0} won`};if(U.local)return show(LGET());FS.collection('users').doc(U.uid).get().then(d=>show(d.exists?d.data():{})).catch(()=>{})}
 const pts=(s,i)=>s.pos[i].filter(p=>p==56).length*10+s.cuts[i]*5+(s.winners.includes(i)?BON[s.winners.indexOf(i)]:0);
-function record(s){try{const inc=firebase.firestore.FieldValue.increment,r=s.winners.indexOf(mySeat),p=pts(s,mySeat),u=FS.collection('users').doc(U.uid);
+function record(s){if(U.local){const x=LGET(),r=s.winners.indexOf(mySeat),p=pts(s,mySeat);x.points=(x.points||0)+p;x.played=(x.played||0)+1;x.won=(x.won||0)+(r==0?1:0);x.games=[{t:Date.now(),mode,n:s.seats.length,rank:r+1,pts:p,cuts:s.cuts[mySeat]}].concat(x.games||[]).slice(0,30);try{localStorage.lg=JSON.stringify(x)}catch(e){}return}
+  try{const inc=firebase.firestore.FieldValue.increment,r=s.winners.indexOf(mySeat),p=pts(s,mySeat),u=FS.collection('users').doc(U.uid);
   u.set({name:U.displayName||'Player',played:inc(1),won:inc(r==0?1:0),points:inc(p)},{merge:true});
   u.collection('games').add({t:Date.now(),mode,n:s.seats.length,rank:r+1,pts:p,cuts:s.cuts[mySeat],names:s.seats.map(x=>s.names[x]).join(', ')})}catch(e){}}
 async function goHist(){go('hist');$('ht').innerHTML='';$('hl').textContent='Loading…';
-  try{const u=FS.collection('users').doc(U.uid),[d,g]=await Promise.all([u.get(),u.collection('games').orderBy('t','desc').limit(30).get()]),x=d.exists?d.data():{},p=x.points||0;
+  try{let x,L;if(U.local){x=LGET();L=x.games||[]}else{const u=FS.collection('users').doc(U.uid),[d,g]=await Promise.all([u.get(),u.collection('games').orderBy('t','desc').limit(30).get()]);x=d.exists?d.data():{};L=g.docs.map(z=>z.data())}const p=x.points||0;
     $('ht').innerHTML=`<span class="chip">⭐ ${p}</span><span class="chip">${lvl(p)}</span><span class="chip">🏆 ${x.won||0} wins</span><span class="chip">🎮 ${x.played||0} games</span>`;
-    $('hl').innerHTML=g.empty?'No games yet. Play one!':g.docs.map(z=>{const v=z.data();return`<div class="row"><div><b>${['','🥇 1st','🥈 2nd','🥉 3rd','4th'][v.rank]}</b> · ${v.mode=='cpu'?'🤖 Computer':'🌐 Friends'} · ${v.n} players<br><small>${new Date(v.t).toLocaleString([],{dateStyle:'medium',timeStyle:'short'})} · cuts: ${v.cuts}</small></div><div class="pt">+${v.pts}</div></div>`}).join('')}
+    $('hl').innerHTML=L.length?L.map(v=>{return`<div class="row"><div><b>${['','🥇 1st','🥈 2nd','🥉 3rd','4th'][v.rank]}</b> · ${v.mode=='cpu'?'🤖 Computer':'🌐 Friends'} · ${v.n} players<br><small>${new Date(v.t).toLocaleString([],{dateStyle:'medium',timeStyle:'short'})} · cuts: ${v.cuts}</small></div><div class="pt">+${v.pts}</div></div>`}).join(''):'No games yet. Play one!'}
   catch(e){$('hl').textContent='Could not load history.'}}
-function out(){if(U.isAnonymous&&!confirm('Guest progress will be lost if you log out. Continue?'))return;A.signOut().then(()=>location.replace('login.html'))}
+function out(){const f=()=>{if(U.local){store.del('localGuest');return location.replace('login.html')}A.signOut().then(()=>location.replace('login.html'))};U.isAnonymous?ask('Guest progress will be lost if you log out. Continue?',f):f()}
+function ask(m,yes){$('ov').innerHTML=`<h2>${m}</h2><button class="btn g" id="yy">Yes</button><button class="btn" id="nn">No</button>`;$('ov').classList.add('on');$('yy').onclick=()=>{$('ov').classList.remove('on');yes()};$('nn').onclick=()=>$('ov').classList.remove('on')}
 function goMenu(){go('menu');stats()}
 function ccs(){$('cc').innerHTML=C.map((c,i)=>`<button class="cb${i==myCol?' sel':''}" style="background:${c};color:${c}" onclick="myCol=${i};ccs()"></button>`).join('')}
 function goSetup(m){mode=m;$('sh').textContent=m=='cpu'?'Play with Computer':'Pass and Play';$('cw').style.display=m=='cpu'?'':'none';ccs();go('setup')}
-function goOnline(){mode='online';go('online')}
+function goOnline(){if(U.local)return toast('Sign in with Google or Guest (online) to play with friends');mode='online';go('online')}
 // ---------- engine ----------
 function newGame(seats,names,first){return{v:0,seats,names,cur:first??seats[0],dice:0,dv:[0,0,0,0],cuts:[0,0,0,0],phase:'roll',sixes:0,pos:[0,1,2,3].map(()=>[-1,-1,-1,-1]),winners:[],last:null,msg:'',r:0}}
 function legal(s){const d=s.dice,r=[];s.pos[s.cur].forEach((p,t)=>{if(p<0?d==6:p+d<=56)r.push(t)});return r}
@@ -193,7 +200,7 @@ function startGame(s){gen++;pend=0;q=Promise.resolve();clearTimeout(T);G=s;go('g
   $('bd').innerHTML=board();tk=$('tk');initTokens();sp=s.pos;shownV=s.v;enqueue(s)}
 function startLocal(n){N=n;const me=mode=='cpu'?myCol:0,seats=(n==2?[me,(me+2)%4]:n==3?[me,(me+1)%4,(me+2)%4]:[0,1,2,3]).sort(),names=['','','',''];
   seats.forEach(i=>names[i]=mode=='cpu'?(i==me?'You':'CPU '+CN[i]):CN[i]);mySeat=me;startGame(newGame(seats,names,mode=='cpu'?me:seats[0]))}
-function leave(){if(!confirm('Leave this game?'))return;gen++;clearTimeout(T);mode=='online'?exitOnline():goMenu()}
+function leave(){ask('Leave this game?',()=>{gen++;clearTimeout(T);mode=='online'?exitOnline():goMenu()})}
 // ---------- online ----------
 const code5=()=>Array.from(crypto.getRandomValues(new Uint8Array(5)),b=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b%32]).join('');
 async function create(){const b=$('cb');if(b.disabled)return;b.disabled=true;try{for(;;){const c=code5(),r=DB.ref('rooms/'+c);if(!(await r.get()).exists()){await r.set({host:U.uid,status:'lobby',players:{[U.uid]:{seat:0,name:nm()}}});return lobby(c)}}}catch(e){toast('Could not create room')}finally{b.disabled=false}}
